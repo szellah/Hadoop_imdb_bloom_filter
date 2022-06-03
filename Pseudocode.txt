@@ -1,0 +1,11 @@
+class MAPPER
+	method MAP(docid a, doc d)
+		for all line l in doc d do
+			EMIT(Math.round(l.getRating()), l.getID())
+			
+class REDUCER
+	method REDUCE(int rating, ids [id1, id2, ...])
+		BloomFilter filter = new BloomFilter()
+		for all int id in ids [id1, id2, ...] do
+			filter.add(id)
+		EMIT(int rating, BloomFilter filter)
