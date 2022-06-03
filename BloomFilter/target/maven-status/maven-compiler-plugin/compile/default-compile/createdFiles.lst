@@ -1,0 +1,3 @@
+it/unipi/hadoop/InMemoryBloomFilter.class
+it/unipi/hadoop/InMemoryBloomFilter$BloomFilterReducer.class
+it/unipi/hadoop/InMemoryBloomFilter$BloomFilterMapper.class
