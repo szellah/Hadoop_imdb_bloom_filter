@@ -48,6 +48,7 @@ public class RatingBloomFilter {
         //saves the filters to txt file
     }
 
+    //static methods
     public static boolean[][] mergeFilters(List<boolean[][]> listOfFilters){
         boolean[][] result = listOfFilters.remove(0);
         for (boolean[][] filterSet : listOfFilters) {
