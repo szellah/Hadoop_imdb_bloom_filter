@@ -1,6 +1,5 @@
 package it.unipi.hadoop;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.hadoop.util.hash.MurmurHash;
 
@@ -24,32 +23,32 @@ public class RatingBloomFilter {
     }
     
     //methods
-    public void fillUp(float[] ratings){
+    public void fillUp(Movie[] movies){
         int n;
         boolean[] filter;
         byte[] valueToHash;
         int pos;
-        for (float rating : ratings) {
-            n = Math.round(rating);
-            valueToHash = ByteBuffer.allocate(4).putFloat(rating).array();
+        for (Movie movie : movies) {
+            n = Math.round(movie.rating);
+            valueToHash = movie.id.getBytes();
             filter = filters[n-1];
             for (int seed : seeds) {
                 //run hash function to coimpute position
-                pos = hashFunction.hash(valueToHash, valueToHash.length, seed);
+                pos = Math.abs(hashFunction.hash(valueToHash, valueToHash.length, seed)) % filter.length;
                 filter[pos] = true;
             }
         }
     }
 
-    public boolean lookUp(float rating){
-        int n = Math.round(rating);
+    public boolean lookUp(Movie movie){
+        int n = Math.round(movie.rating);
         boolean[] filter = filters[n-1];
-        byte[] valueToHash = ByteBuffer.allocate(4).putFloat(rating).array();
+        byte[] valueToHash = movie.id.getBytes();
         boolean result = true;
         int pos;
         for (int seed : seeds) {
             //run hash function to compute the position
-            pos = hashFunction.hash(valueToHash, valueToHash.length, seed);
+            pos = Math.abs(hashFunction.hash(valueToHash, valueToHash.length, seed)) % filter.length;
             result = result && filter[pos];
         }
         return result;
