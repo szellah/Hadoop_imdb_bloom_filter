@@ -3,6 +3,8 @@ package it.unipi.hadoop;
 import java.io.IOException;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.conf.Configuration;
@@ -25,12 +27,15 @@ public class MapReduce {
         private final IntWritable reducerKey = new IntWritable();
         private final Text reducerValue = new Text();
 
+        private Map<Integer, Long> associativeArray;
+
+        public void setup(Context context) throws IOException, InterruptedException
+        {
+            this.associativeArray = new HashMap<Integer, Long>();
+        }
+
         @Override
-        // it receives a string wrapped as a Text object that need to be parsed in a
-        // timeSeries object
-        // returns a Text
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-            // To be implemented
 
             String s = value.toString();
             if (s == null || s.length() == 0)
@@ -38,29 +43,47 @@ public class MapReduce {
 
             String[] tokens = s.trim().split("\\s");
 
-            reducerKey.set(Math.round(Float.parseFloat(tokens[1])));
-            reducerValue.set(tokens[0]);
-            context.write(reducerKey, reducerValue);
+            //reducerKey.set(Math.round(Float.parseFloat(tokens[1])));
+            //reducerValue.set(tokens[0]);
+            //context.write(reducerKey, reducerValue);
+            int rating = Math.round(Float.parseFloat(tokens[1]));
+            Long count = associativeArray.get(rating);
+            if( count == null ) {
+                associativeArray.put(rating, 1l);
+            }
+            else {
+                associativeArray.put(rating, count + 1);
+            }
+        }
+
+        public void cleanup(Context context) throws IOException, InterruptedException
+        {
+            for(Integer rating : associativeArray.keySet()) {
+                reducerKey.set(rating);
+                reducerValue.set(associativeArray.get(rating).toString());
+                context.write(reducerKey, reducerValue);
+            }
         }
 
     }
 
-    public static class BloomFilterReducer extends Reducer<IntWritable, Text, IntWritable, Text> {
+    public static class BloomFilterReducer extends Reducer<IntWritable, Text, IntWritable, LongWritable> {
 
-        // we receive the name of the stock and the list of all the TimeSeriesData
-        // available
         public void reduce(IntWritable key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
-            // To be implemented
-            // build the unsorted list of timeseries
-            List<Text> listIds = new ArrayList<Text>();
-            while (values.iterator().hasNext()) {
-                listIds.add(values.iterator().next());
+
+            
+            //List<String> listIds = new ArrayList<String>();
+            
+            long sum = 0;
+            for ( Text id : values ) {
+                //listIds.add( id.toString() );
+                sum = sum + 1;
             }
+            
+            LongWritable outputValue = new LongWritable();
 
-            Text outputValue = new Text();
-
-            outputValue.set("rating: " + key.toString() + ", num of ids: " + listIds.size());
+            outputValue.set(sum);
             
             context.write(key, outputValue);
 
@@ -91,7 +114,7 @@ public class MapReduce {
 
             // define reducer's output key-value
             job.setOutputKeyClass(IntWritable.class);
-            job.setOutputValueClass(Text.class);
+            job.setOutputValueClass(LongWritable.class);
 
             // define I/O
             FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
