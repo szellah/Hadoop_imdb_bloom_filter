@@ -19,7 +19,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
 
 
-public class InMemoryBloomFilter {
+public class MapReduce {
     public static class BloomFilterMapper extends Mapper<LongWritable, Text, IntWritable, Text> {
         // reuse Hadoop's Writable objects
         private final IntWritable reducerKey = new IntWritable();
@@ -78,8 +78,8 @@ public class InMemoryBloomFilter {
             System.out.println("args[0]: <input>=" + otherArgs[0]);
             System.out.println("args[1]: <output>=" + otherArgs[1]);
 
-            Job job = Job.getInstance(conf, "InMemoryBloomFilter");
-            job.setJarByClass(InMemoryBloomFilter.class);
+            Job job = Job.getInstance(conf, "MapReduce");
+            job.setJarByClass(MapReduce.class);
 
             // set mapper/reducer
             job.setMapperClass(BloomFilterMapper.class);
