@@ -22,16 +22,17 @@ import org.apache.hadoop.util.GenericOptionsParser;
 
 
 public class MapReduce {
-    public static class BloomFilterMapper extends Mapper<LongWritable, Text, IntWritable, Text> {
+    public static class BloomFilterMapper extends Mapper<LongWritable, Text, IntWritable, LongWritable> {
         // reuse Hadoop's Writable objects
         private final IntWritable reducerKey = new IntWritable();
-        private final Text reducerValue = new Text();
+        private final LongWritable reducerValue = new LongWritable();
 
         private Map<Integer, Long> associativeArray;
 
         public void setup(Context context) throws IOException, InterruptedException
         {
             this.associativeArray = new HashMap<Integer, Long>();
+            associativeArray.put(0, 0l);
         }
 
         @Override
@@ -49,32 +50,33 @@ public class MapReduce {
             int rating = Math.round(Float.parseFloat(tokens[1]));
             Long count = associativeArray.get(rating);
             if( count == null ) {
-                associativeArray.put(rating, 1l);
+                count = 0l;
             }
-            else {
-                associativeArray.put(rating, count + 1);
-            }
+            associativeArray.put(rating, count + 1);
+
+            long total = associativeArray.get(0);
+            associativeArray.put(0, total+1);
         }
 
         public void cleanup(Context context) throws IOException, InterruptedException
         {
             for(Integer rating : associativeArray.keySet()) {
                 reducerKey.set(rating);
-                reducerValue.set(associativeArray.get(rating).toString());
+                reducerValue.set(associativeArray.get(rating));
                 context.write(reducerKey, reducerValue);
             }
         }
 
     }
 
-    public static class BloomFilterReducer extends Reducer<IntWritable, Text, IntWritable, LongWritable> {
+    public static class BloomFilterReducer extends Reducer<IntWritable, LongWritable, IntWritable, LongWritable> {
 
-        public void reduce(IntWritable key, Iterable<Text> values, Context context)
+        public void reduce(IntWritable key, LongWritable value, Context context)
                 throws IOException, InterruptedException {
 
             
             //List<String> listIds = new ArrayList<String>();
-            
+            /*
             long sum = 0;
             for ( Text id : values ) {
                 //listIds.add( id.toString() );
@@ -84,8 +86,8 @@ public class MapReduce {
             LongWritable outputValue = new LongWritable();
 
             outputValue.set(sum);
-            
-            context.write(key, outputValue);
+            */
+            context.write(key, value);
 
             }
         }
@@ -110,7 +112,7 @@ public class MapReduce {
 
             // define mapper's output key-value
             job.setMapOutputKeyClass(IntWritable.class);
-            job.setMapOutputValueClass(Text.class);
+            job.setMapOutputValueClass(LongWritable.class);
 
             // define reducer's output key-value
             job.setOutputKeyClass(IntWritable.class);
