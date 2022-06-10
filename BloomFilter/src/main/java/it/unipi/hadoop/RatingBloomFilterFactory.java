@@ -1,9 +1,9 @@
 package it.unipi.hadoop;
 
-import java.io.File;  // Import the File class
-import java.io.FileNotFoundException;  // Import this class to handle errors
-import java.util.Scanner; // Import the Scanner class to read text files
-import java.util.ArrayList;
+// import java.io.File;  // Import the File class
+// import java.io.FileNotFoundException;  // Import this class to handle errors
+// import java.util.Scanner; // Import the Scanner class to read text files
+// import java.util.ArrayList;
 import java.util.Random;  
 
 //It uses map reducer
@@ -11,9 +11,8 @@ public class RatingBloomFilterFactory {
 
     public RatingBloomFilter CreateBloomFilter(){
         //load up config file
-        ArrayList<String> config = ReadConfigFile();
-        Float p = Float.parseFloat(config.get(0));
-        Integer n = Integer.parseInt(config.get(1));
+        Float p = Float.parseFloat(System.getProperty("P_CONFIG"));
+        Integer n = Integer.parseInt(System.getProperty("N_CONFIG"));
         Integer filterSize = ComputeM(p, n);
         Integer amountOfSeeds = ComputeK(n, filterSize);
         int[] seeds = GenerateSeeds(amountOfSeeds);
@@ -35,22 +34,22 @@ public class RatingBloomFilterFactory {
         return result;
     }
    
-    private ArrayList<String> ReadConfigFile() {
-        ArrayList<String> result = new ArrayList<String>();
-        try {
-          File myObj = new File("config.txt");
-          Scanner myReader = new Scanner(myObj);  
-          while (myReader.hasNextLine()) {
-            String data = myReader.nextLine(); 
-            result.add(data);
-          }
-          myReader.close();
-        } catch (FileNotFoundException e) {
-          System.out.println("An error occurred.");
-          e.printStackTrace();
-        }
-        return result;
-    }
+    // private ArrayList<String> ReadConfigFile() {
+    //     ArrayList<String> result = new ArrayList<String>();
+    //     try {
+    //       File myObj = new File("config.txt");
+    //       Scanner myReader = new Scanner(myObj);  
+    //       while (myReader.hasNextLine()) {
+    //         String data = myReader.nextLine(); 
+    //         result.add(data);
+    //       }
+    //       myReader.close();
+    //     } catch (FileNotFoundException e) {
+    //       System.out.println("An error occurred.");
+    //       e.printStackTrace();
+    //     }
+    //     return result;
+    // }
 
     private int[] GenerateSeeds(int n){
         int[] result = new int[n];
