@@ -56,7 +56,7 @@ public class MapReduce {
 
     }
 
-    public static class BloomFilterReducer extends Reducer<IntWritable, LongWritable, IntWritable, String> {
+    public static class BloomFilterReducer extends Reducer<IntWritable, LongWritable, Integer, String> {
 
         public void reduce(Integer key, String value, Context context)
                 throws IOException, InterruptedException {
