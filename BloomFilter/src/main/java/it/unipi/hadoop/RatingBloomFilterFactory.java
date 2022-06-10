@@ -11,8 +11,8 @@ public class RatingBloomFilterFactory {
 
     public RatingBloomFilter CreateBloomFilter(){
         //load up config file
-        Float p = Float.parseFloat(System.getProperty("P_CONFIG"));
-        Integer n = Integer.parseInt(System.getProperty("N_CONFIG"));
+        Float p = Float.parseFloat(System.getenv("P_CONFIG"));
+        Integer n = Integer.parseInt(System.getenv("N_CONFIG"));
         Integer filterSize = ComputeM(p, n);
         Integer amountOfSeeds = ComputeK(n, filterSize);
         int[] seeds = GenerateSeeds(amountOfSeeds);
