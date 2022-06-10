@@ -20,8 +20,6 @@ public class MapReduce {
     public static class BloomFilterMapper extends Mapper<LongWritable, Text, Integer, String> {
         // reuse Hadoop's Writable objects
         // private final IntWritable reducerKey = new IntWritable();
-        private final Integer reducerKey = new Integer("");
-        private final Text reducerValue = new Text();
         private RatingBloomFilter rbf;
 
 
