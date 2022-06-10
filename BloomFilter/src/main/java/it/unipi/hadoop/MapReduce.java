@@ -1,11 +1,6 @@
 package it.unipi.hadoop;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.HashMap;
-
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -22,17 +17,18 @@ import org.apache.hadoop.util.GenericOptionsParser;
 
 
 public class MapReduce {
-    public static class BloomFilterMapper extends Mapper<LongWritable, Text, IntWritable, LongWritable> {
+    public static class BloomFilterMapper extends Mapper<LongWritable, Text, Integer, String> {
         // reuse Hadoop's Writable objects
-        private final IntWritable reducerKey = new IntWritable();
-        private final LongWritable reducerValue = new LongWritable();
+        // private final IntWritable reducerKey = new IntWritable();
+        private final Integer reducerKey = new Integer("");
+        private final Text reducerValue = new Text();
+        private RatingBloomFilter rbf;
 
-        private Map<Integer, Long> associativeArray;
 
         public void setup(Context context) throws IOException, InterruptedException
         {
-            this.associativeArray = new HashMap<Integer, Long>();
-            associativeArray.put(0, 0l);
+            RatingBloomFilterFactory rbff = new RatingBloomFilterFactory();
+            rbf = rbff.CreateBloomFilter();
         }
 
         @Override
@@ -47,31 +43,24 @@ public class MapReduce {
             //reducerKey.set(Math.round(Float.parseFloat(tokens[1])));
             //reducerValue.set(tokens[0]);
             //context.write(reducerKey, reducerValue);
-            int rating = Math.round(Float.parseFloat(tokens[1]));
-            Long count = associativeArray.get(rating);
-            if( count == null ) {
-                count = 0l;
-            }
-            associativeArray.put(rating, count + 1);
+            String id = tokens[0];
+            float rating = Float.parseFloat(tokens[1]);
 
-            long total = associativeArray.get(0);
-            associativeArray.put(0, total+1);
+            Movie movie = new Movie(id, rating);
+
+            rbf.fillUp(movie);
         }
 
         public void cleanup(Context context) throws IOException, InterruptedException
         {
-            for(Integer rating : associativeArray.keySet()) {
-                reducerKey.set(rating);
-                reducerValue.set(associativeArray.get(rating));
-                context.write(reducerKey, reducerValue);
-            }
+            context.write(0, rbf.toString());
         }
 
     }
 
-    public static class BloomFilterReducer extends Reducer<IntWritable, LongWritable, IntWritable, LongWritable> {
+    public static class BloomFilterReducer extends Reducer<IntWritable, LongWritable, IntWritable, String> {
 
-        public void reduce(IntWritable key, LongWritable value, Context context)
+        public void reduce(Integer key, String value, Context context)
                 throws IOException, InterruptedException {
 
             
@@ -87,7 +76,6 @@ public class MapReduce {
 
             outputValue.set(sum);
             */
-            context.write(key, value);
 
             }
         }
