@@ -28,27 +28,21 @@ public class MapReduce {
         
         private static final int RATING_NUM = 10;
 
-        // reuse Hadoop's Writable objects
         private final IntWritable reducerKey = new IntWritable();
         private BloomFilter reducerValue = null;
 
         private List<BloomFilter> filters;
-
-        //private List<List<Text>> associativeArray;
+        private int m;
 
         public void setup(Context context) throws IOException, InterruptedException
         {
-            /*
-            associativeArray = new ArrayList<List<Text>>(RATING_NUM + 1);
-            associativeArray.add(null);
-            for( int i = 0 ; i < RATING_NUM ; i++ ) {
-                associativeArray.add(new LinkedList<Text>());
-            }
-            */
             filters = new ArrayList<BloomFilter>(RATING_NUM+1);
             for(int i = 0 ; i <= RATING_NUM ; i++){
                 filters.add(i, null);
             }
+
+            Configuration conf = context.getConfiguration();
+            m = conf.getInt("bloomfilter.m", 1000);
         }
 
         @Override
@@ -69,34 +63,14 @@ public class MapReduce {
                 return;
             }
 
-            /*
-            List<Text> ids = associativeArray.get(rating);
-            ids.add(new Text(tokens[0]));
-            */
-
             if(filters.get(rating) != null){
                 filters.get(rating).add(new Key(tokens[0].getBytes()));
             }else{
-                filters.add(rating, new BloomFilter(1000, 3, Hash.MURMUR_HASH));
+                filters.add(rating, new BloomFilter(m, 3, Hash.MURMUR_HASH));
             }
-            
-            /*
-            reducerKey.set(rating);
-            reducerValue.set(tokens[0]);
-            context.write(reducerKey, reducerValue);
-            */
-            
         }
 
-        public void cleanup(Context context) throws IOException, InterruptedException
-        {
-            /*
-            for( int i = 1 ; i <= RATING_NUM ; i++ ) {
-                reducerKey.set(i);
-                reducerValue.set( (Text[]) associativeArray.get(i).toArray() );
-                context.write(reducerKey, reducerValue);
-            }
-            */
+        public void cleanup(Context context) throws IOException, InterruptedException {
 
             for (int i = 1 ; i <= RATING_NUM ; i++) {
                 reducerKey.set(i);
@@ -104,6 +78,9 @@ public class MapReduce {
                 if(reducerValue != null)
                     context.write(reducerKey, reducerValue);
             }
+
+            filters = null;
+
         }
 
     }
@@ -112,22 +89,19 @@ public class MapReduce {
 
         private static String FILTER_OUTPUT_FILE_CONF = "bloomfilter.output.file";
 
-        private BloomFilter result = new BloomFilter(1000,3,Hash.MURMUR_HASH);
+        private BloomFilter result;
+        private int m;
+
+        public void setup(Context context) throws IOException, InterruptedException
+        {
+            Configuration conf = context.getConfiguration();
+            m = conf.getInt("bloomfilter.m", 1000);
+
+            result = new BloomFilter(m,3,Hash.MURMUR_HASH);
+        }
 
         public void reduce(IntWritable key, Iterable<BloomFilter> values, Context context)
                 throws IOException, InterruptedException {
-                /*
-                int sum = 0;
-
-                IntWritable outputValue = new IntWritable(); // reuse object
-
-                for (Text txtData : values) {
-                    sum++;
-                }
-
-                outputValue.set(sum);
-                context.write(key, outputValue);
-                */
 
                 for (BloomFilter bf : values) {
                     result.or(bf);
@@ -138,10 +112,11 @@ public class MapReduce {
 
                 try (FSDataOutputStream fsdos = fs.create(outputFilePath)) {
                     result.write(fsdos);
-
                 } catch (Exception e) {
                     throw new IOException("Error while writing bloom filter to file system.", e);
                 }
+
+                context.write(key, new Text(result.toString()));
 
             }
 
@@ -155,18 +130,21 @@ public class MapReduce {
         public static void main(String[] args) throws Exception {
             Configuration conf = new Configuration();
             String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
-            if (otherArgs.length != 2) {
-                System.err.println("Usage: BloomFilter <input> <output>");
+            if (otherArgs.length != 4) {
+                System.err.println("Usage: BloomFilter <input> <output> <linespermap> <m>");
                 System.exit(1);
             }
            
             System.out.println("args[0]: <input>=" + otherArgs[0]);
             System.out.println("args[1]: <output>=" + otherArgs[1]);
+            System.out.println("args[2]: <linespermap>=" + otherArgs[2]);
+            System.out.println("args[3]: <m>=" + otherArgs[3]);
 
             Job job = Job.getInstance(conf, "MapReduce");
             job.setJarByClass(MapReduce.class);
 
             job.getConfiguration().set(BloomFilterReducer.FILTER_OUTPUT_FILE_CONF, otherArgs[1] + Path.SEPARATOR + "filter");
+            job.getConfiguration().setInt("bloomfilter.m", Integer.parseInt(otherArgs[3]));
 
             // set mapper/reducer
             job.setMapperClass(BloomFilterMapper.class);
@@ -181,17 +159,14 @@ public class MapReduce {
             job.setOutputValueClass(Text.class);
 
             // define I/O
-            //FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
             NLineInputFormat.addInputPath(job, new Path(otherArgs[0]));
             FileOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
 
-            //job.setInputFormatClass(TextInputFormat.class);
             job.setInputFormatClass(NLineInputFormat.class);
             // Set number of lines per mapper
-            job.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", 100000);
+            job.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", Integer.parseInt(otherArgs[2]));
             job.setOutputFormatClass(TextOutputFormat.class);
 
             System.exit(job.waitForCompletion(true) ? 0 : 1);
         }
     }
-    
