@@ -66,8 +66,11 @@ public class MapReduce {
             if(filters.get(rating) != null){
                 filters.get(rating).add(new Key(tokens[0].getBytes()));
             }else{
-                filters.add(rating, new BloomFilter(m, 3, Hash.MURMUR_HASH));
+                BloomFilter bf = new BloomFilter(m, 3, Hash.MURMUR_HASH);
+                bf.add(new Key(tokens[0].getBytes()));
+                filters.add(rating, bf);
             }
+
         }
 
         public void cleanup(Context context) throws IOException, InterruptedException {
@@ -79,6 +82,7 @@ public class MapReduce {
                     context.write(reducerKey, reducerValue);
             }
 
+            reducerValue = null;
             filters = null;
 
         }
