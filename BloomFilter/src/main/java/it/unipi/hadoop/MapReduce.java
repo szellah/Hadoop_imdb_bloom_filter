@@ -32,7 +32,7 @@ public class MapReduce {
         private BloomFilter reducerValue = null;
 
         private List<BloomFilter> filters;
-        private int m;
+        private int m, k;
 
         public void setup(Context context) throws IOException, InterruptedException
         {
@@ -42,7 +42,8 @@ public class MapReduce {
             }
 
             Configuration conf = context.getConfiguration();
-            m = conf.getInt("bloomfilter.m", 1000);
+            m = conf.getInt("bloomfilter.m", 2500000);
+            k = conf.getInt("bloomfilter.k", 3);
         }
 
         @Override
@@ -66,7 +67,7 @@ public class MapReduce {
             if(filters.get(rating) != null){
                 filters.get(rating).add(new Key(tokens[0].getBytes()));
             }else{
-                BloomFilter bf = new BloomFilter(m, 3, Hash.MURMUR_HASH);
+                BloomFilter bf = new BloomFilter(m, k, Hash.MURMUR_HASH);
                 bf.add(new Key(tokens[0].getBytes()));
                 filters.add(rating, bf);
             }
@@ -94,14 +95,15 @@ public class MapReduce {
         private static String FILTER_OUTPUT_FILE_CONF = "bloomfilter.output.file";
 
         private BloomFilter result;
-        private int m;
+        private int m, k;
 
         public void setup(Context context) throws IOException, InterruptedException
         {
             Configuration conf = context.getConfiguration();
-            m = conf.getInt("bloomfilter.m", 1000);
+            m = conf.getInt("bloomfilter.m", 2500000);
+            k = conf.getInt("bloomfilter.k", 3);
 
-            result = new BloomFilter(m,3,Hash.MURMUR_HASH);
+            result = new BloomFilter(m,k,Hash.MURMUR_HASH);
         }
 
         public void reduce(IntWritable key, Iterable<BloomFilter> values, Context context)
@@ -120,7 +122,7 @@ public class MapReduce {
                     throw new IOException("Error while writing bloom filter to file system.", e);
                 }
 
-                context.write(key, new Text(result.toString()));
+                //context.write(key, new Text(result.toString()));
 
             }
 
@@ -134,8 +136,17 @@ public class MapReduce {
         public static void main(String[] args) throws Exception {
             Configuration conf = new Configuration();
             String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
-            if (otherArgs.length != 4) {
-                System.err.println("Usage: BloomFilter <input> <output> <linespermap> <m>");
+            if (otherArgs.length != 5) {
+                System.err.println("Usage: BloomFilter <input> <output> <linespermap> <m> <k>");
+                System.exit(1);
+            }
+            int linesPerMap = -1, m = -1, k = -1;
+            try{
+                linesPerMap = Integer.parseInt(otherArgs[2]);
+                m = Integer.parseInt(otherArgs[3]);
+                k = Integer.parseInt(otherArgs[4]);
+            }catch (NumberFormatException ex) {
+                System.err.println("The parameters linespermap, m, and k have to be integers");
                 System.exit(1);
             }
            
@@ -143,12 +154,14 @@ public class MapReduce {
             System.out.println("args[1]: <output>=" + otherArgs[1]);
             System.out.println("args[2]: <linespermap>=" + otherArgs[2]);
             System.out.println("args[3]: <m>=" + otherArgs[3]);
+            System.out.println("args[4]: <k>=" + otherArgs[4]);
 
             Job job = Job.getInstance(conf, "MapReduce");
             job.setJarByClass(MapReduce.class);
 
-            job.getConfiguration().set(BloomFilterReducer.FILTER_OUTPUT_FILE_CONF, otherArgs[1] + Path.SEPARATOR + "filter");
-            job.getConfiguration().setInt("bloomfilter.m", Integer.parseInt(otherArgs[3]));
+            job.getConfiguration().set(BloomFilterReducer.FILTER_OUTPUT_FILE_CONF, otherArgs[1] + Path.SEPARATOR + "filters");
+            job.getConfiguration().setInt("bloomfilter.m", m);
+            job.getConfiguration().setInt("bloomfilter.k", k);
 
             // set mapper/reducer
             job.setMapperClass(BloomFilterMapper.class);
@@ -168,7 +181,7 @@ public class MapReduce {
 
             job.setInputFormatClass(NLineInputFormat.class);
             // Set number of lines per mapper
-            job.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", Integer.parseInt(otherArgs[2]));
+            job.getConfiguration().setInt("mapreduce.input.lineinputformat.linespermap", linesPerMap);
             job.setOutputFormatClass(TextOutputFormat.class);
 
             System.exit(job.waitForCompletion(true) ? 0 : 1);
