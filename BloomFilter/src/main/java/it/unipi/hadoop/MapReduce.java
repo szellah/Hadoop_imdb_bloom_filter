@@ -27,6 +27,8 @@ public class MapReduce {
     public static class BloomFilterMapper extends Mapper<LongWritable, Text, IntWritable, BloomFilter> {
         
         private static final int RATING_NUM = 10;
+        private static final int DEFAULT_M = 600000;
+        private static final int DEFAULT_K = 3;
 
         private final IntWritable reducerKey = new IntWritable();
         private BloomFilter reducerValue = null;
@@ -36,14 +38,14 @@ public class MapReduce {
 
         public void setup(Context context) throws IOException, InterruptedException
         {
+            Configuration conf = context.getConfiguration();
+            m = conf.getInt("bloomfilter.m", DEFAULT_M);
+            k = conf.getInt("bloomfilter.k", DEFAULT_K);
+
             filters = new ArrayList<BloomFilter>(RATING_NUM+1);
             for(int i = 0 ; i <= RATING_NUM ; i++){
-                filters.add(i, null);
+                filters.add(null);
             }
-
-            Configuration conf = context.getConfiguration();
-            m = conf.getInt("bloomfilter.m", 2500000);
-            k = conf.getInt("bloomfilter.k", 3);
         }
 
         @Override
@@ -64,12 +66,13 @@ public class MapReduce {
                 return;
             }
 
-            if(filters.get(rating) != null){
-                filters.get(rating).add(new Key(tokens[0].getBytes()));
-            }else{
+            if( filters.get(rating) == null ) {
                 BloomFilter bf = new BloomFilter(m, k, Hash.MURMUR_HASH);
                 bf.add(new Key(tokens[0].getBytes()));
                 filters.add(rating, bf);
+            }
+            else {
+                filters.get(rating).add(new Key(tokens[0].getBytes()));
             }
 
         }
@@ -78,12 +81,10 @@ public class MapReduce {
 
             for (int i = 1 ; i <= RATING_NUM ; i++) {
                 reducerKey.set(i);
-                reducerValue = filters.get(i);
-                if(reducerValue != null)
-                    context.write(reducerKey, reducerValue);
+                if( filters.get(i) != null )
+                    context.write(reducerKey, filters.get(i));
             }
 
-            reducerValue = null;
             filters = null;
 
         }
@@ -94,20 +95,23 @@ public class MapReduce {
 
         private static String FILTER_OUTPUT_FILE_CONF = "bloomfilter.output.file";
 
+        private static final int DEFAULT_M = 600000;
+        private static final int DEFAULT_K = 3;
+
         private BloomFilter result;
         private int m, k;
 
         public void setup(Context context) throws IOException, InterruptedException
         {
             Configuration conf = context.getConfiguration();
-            m = conf.getInt("bloomfilter.m", 2500000);
-            k = conf.getInt("bloomfilter.k", 3);
-
-            result = new BloomFilter(m,k,Hash.MURMUR_HASH);
+            m = conf.getInt("bloomfilter.m", DEFAULT_M);
+            k = conf.getInt("bloomfilter.k", DEFAULT_K);
         }
 
         public void reduce(IntWritable key, Iterable<BloomFilter> values, Context context)
                 throws IOException, InterruptedException {
+
+                result = new BloomFilter(m,k,Hash.MURMUR_HASH);
 
                 for (BloomFilter bf : values) {
                     result.or(bf);
@@ -122,7 +126,7 @@ public class MapReduce {
                     throw new IOException("Error while writing bloom filter to file system.", e);
                 }
 
-                //context.write(key, new Text(result.toString()));
+                context.write(key, new Text(result.toString()));
 
             }
 
