@@ -76,10 +76,6 @@ public class Tester {
 
             boolean isMember = bf.membershipTest(new Key(tokens[0].getBytes()));
 
-            if((movieRating == bfRating) && !isMember){
-                throw new InterruptedException("False negative! > " + s);
-            }
-
             if((movieRating != bfRating) && isMember){
                 falsePositives++;
             }
